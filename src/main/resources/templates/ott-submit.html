@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Finish signing in</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="card">
+    <h1>Finish signing in</h1>
+
+    <p class="muted" th:if="${token.isEmpty()}">
+        Paste the code from your email to sign in.
+    </p>
+    <p class="muted" th:unless="${token.isEmpty()}">
+        Confirm below to sign in.
+    </p>
+
+    <!--/* The token arrives in the URL but is spent by this POST, never by the GET
+            that rendered the page: prefetchers and link scanners follow GETs, and any
+            one of them would burn the token before its owner arrived. */-->
+    <form class="stack" method="post" th:action="@{/login/ott}">
+        <input class="field field-token"
+               type="text"
+               name="token"
+               required
+               autocomplete="one-time-code"
+               placeholder="Paste your code"
+               th:value="${token}">
+        <button class="btn btn-primary" type="submit">Sign in</button>
+    </form>
+
+    <p class="links">
+        <a th:href="@{/login}">Request a new link</a>
+    </p>
+</main>
+</body>
+</html>

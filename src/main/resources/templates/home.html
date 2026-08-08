@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AuthAndSecurity</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="card">
+    <h1>AuthAndSecurity</h1>
+
+    <img class="avatar" th:if="${user.picture}" th:src="${user.picture}" alt="">
+
+    <!--/* One expression rather than a chain of Thymeleaf's own ?: operator, which
+            only takes a single default and will not parse when strung together. */-->
+    <p class="name" th:text="${user.name ?: user.email ?: 'Signed in'}"></p>
+    <p class="muted" th:if="${user.name != null and user.email != null}" th:text="${user.email}"></p>
+
+    <p class="muted" th:text="${user.method == 'google'}
+                              ? 'Signed in with Google'
+                              : 'Signed in with an emailed link'"></p>
+
+    <!--/* A POST, because logging out on a GET is something a third-party page can
+            provoke. Thymeleaf adds the CSRF hidden field automatically. */-->
+    <form method="post" th:action="@{/logout}">
+        <button class="btn" type="submit">Sign out</button>
+    </form>
+</main>
+</body>
+</html>
