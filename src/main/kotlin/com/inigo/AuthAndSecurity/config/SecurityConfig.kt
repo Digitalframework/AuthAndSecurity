@@ -1,12 +1,15 @@
 package com.inigo.AuthAndSecurity.config
 
-import com.inigo.AuthAndSecurity.services.AllowlistUserDetailsService
 import com.inigo.AuthAndSecurity.onetimetoken.EmailOneTimeTokenGenerationSuccessHandler
-import com.inigo.AuthAndSecurity.services.EmailService
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenProperties
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenRateLimitFilter
+import com.inigo.AuthAndSecurity.onetimetoken.RegistrationCompletingSuccessHandler
+import com.inigo.AuthAndSecurity.onetimetoken.SignInLinkBuilder
+import com.inigo.AuthAndSecurity.services.EmailService
 import com.inigo.AuthAndSecurity.services.OneTimeTokenRateLimiterService
 import com.inigo.AuthAndSecurity.services.PersistentOneTimeTokenService
+import com.inigo.AuthAndSecurity.services.RegisteredUserDetailsService
+import com.inigo.AuthAndSecurity.services.UserRegistrationService
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -29,9 +32,11 @@ class SecurityConfig {
     fun securityFilterChain(
         http: HttpSecurity,
         tokenService: PersistentOneTimeTokenService,
-        userDetailsService: AllowlistUserDetailsService,
+        userDetailsService: RegisteredUserDetailsService,
         rateLimiter: OneTimeTokenRateLimiterService,
         emailService: EmailService,
+        linkBuilder: SignInLinkBuilder,
+        registrations: UserRegistrationService,
         properties: OneTimeTokenProperties,
         clock: Clock,
     ): SecurityFilterChain {
@@ -51,6 +56,9 @@ class SecurityConfig {
             httpBasic { disable() }
             authorizeHttpRequests {
                 authorize(OneTimeTokenRateLimitFilter.LOGIN_URL, permitAll)
+                // Signing up is necessarily open: the whole point is that whoever
+                // reaches it has no account yet.
+                authorize(OneTimeTokenRateLimitFilter.REGISTER_URL, permitAll)
                 authorize(OneTimeTokenRateLimitFilter.GENERATE_URL, permitAll)
                 authorize(OneTimeTokenRateLimitFilter.SENT_URL, permitAll)
                 // Both the page that takes a pasted token and the POST that spends
@@ -65,8 +73,12 @@ class SecurityConfig {
                 tokenGeneratingUrl = OneTimeTokenRateLimitFilter.GENERATE_URL
                 loginProcessingUrl = EmailOneTimeTokenGenerationSuccessHandler.SUBMIT_PATH
                 oneTimeTokenGenerationSuccessHandler =
-                    EmailOneTimeTokenGenerationSuccessHandler(emailService, properties, clock)
+                    EmailOneTimeTokenGenerationSuccessHandler(emailService, linkBuilder, clock)
                 generateRequestResolver = requestResolver
+                // Redeeming a token is what proves the address, so it is also what
+                // turns a pending registration into a real account. Wraps the
+                // redirect Spring would have used, rather than replacing it.
+                authenticationSuccessHandler = RegistrationCompletingSuccessHandler(registrations)
                 // A page of this application's own is served at that URL instead,
                 // so the framework's generated one would only shadow it.
                 showDefaultSubmitPage = false

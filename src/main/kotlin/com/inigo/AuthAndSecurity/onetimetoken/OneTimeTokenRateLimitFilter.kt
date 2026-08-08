@@ -1,5 +1,6 @@
 package com.inigo.AuthAndSecurity.onetimetoken
 
+import com.inigo.AuthAndSecurity.services.LinkPurpose
 import com.inigo.AuthAndSecurity.services.LinkRequestDecision
 import com.inigo.AuthAndSecurity.services.OneTimeTokenRateLimiterService
 import jakarta.servlet.FilterChain
@@ -39,7 +40,7 @@ class OneTimeTokenRateLimitFilter(
             return
         }
 
-        when (val decision = rateLimiter.decide(email)) {
+        when (val decision = rateLimiter.decide(email, LinkPurpose.SIGN_IN)) {
             LinkRequestDecision.Allowed -> filterChain.doFilter(request, response)
 
             LinkRequestDecision.SilentlyRefused -> redirect(response, SENT_URL)
@@ -77,6 +78,7 @@ class OneTimeTokenRateLimitFilter(
         /** The parameter name Spring Security's generate filter reads. */
         const val USERNAME_PARAMETER: String = "username"
         const val LOGIN_URL: String = "/login"
+        const val REGISTER_URL: String = "/register"
         const val GENERATE_URL: String = "/ott/generate"
         const val SENT_URL: String = "/ott/sent"
     }

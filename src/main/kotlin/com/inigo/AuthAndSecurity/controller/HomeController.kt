@@ -1,6 +1,6 @@
 package com.inigo.AuthAndSecurity.controller
 
-import com.inigo.AuthAndSecurity.dto.CurrentUser
+import com.inigo.AuthAndSecurity.services.CurrentUserService
 import org.springframework.security.core.Authentication
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
@@ -11,11 +11,13 @@ import org.springframework.web.bind.annotation.GetMapping
  * is no signed-out branch to render.
  */
 @Controller
-class HomeController {
+class HomeController(
+    private val currentUser: CurrentUserService,
+) {
 
     @GetMapping("/")
     fun home(authentication: Authentication?, model: Model): String {
-        model.addAttribute("user", CurrentUser.from(authentication))
+        model.addAttribute("user", currentUser.of(authentication))
         return "home"
     }
 }

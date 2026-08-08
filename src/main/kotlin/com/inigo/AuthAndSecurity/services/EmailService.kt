@@ -6,7 +6,7 @@ import org.springframework.mail.javamail.MimeMessageHelper
 import org.springframework.scheduling.annotation.Async
 import java.time.Duration
 
-/** Delivers a freshly minted sign-in link to its owner. */
+/** Delivers a freshly minted token to its owner. */
 interface EmailService {
 
     /**
@@ -15,6 +15,14 @@ interface EmailService {
      * why that trade is made here.
      */
     fun sendSignInLink(email: String, link: String, token: String, validFor: Duration)
+
+    /**
+     * The same link, worded for someone who has just filled in the registration
+     * form and has no account yet. Kept apart from [sendSignInLink] because "sign
+     * in" is a confusing thing to say to a person who has never signed in, and
+     * because this message is the one that has to explain what confirming does.
+     */
+    fun sendVerificationLink(email: String, firstname: String, link: String, token: String, validFor: Duration)
 }
 
 class SmtpEmailService(
@@ -38,67 +46,112 @@ class SmtpEmailService(
      */
     @Async
     override fun sendSignInLink(email: String, link: String, token: String, validFor: Duration) {
+        deliver(
+            email = email,
+            // The token stays out of the subject line: subjects show up in
+            // mail-server logs and notification previews far more readily than
+            // bodies do.
+            subject = "Your sign-in link",
+            wording = SIGN_IN_WORDING,
+            link = link,
+            token = token,
+            validFor = validFor,
+        )
+    }
+
+    @Async
+    override fun sendVerificationLink(
+        email: String,
+        firstname: String,
+        link: String,
+        token: String,
+        validFor: Duration,
+    ) {
+        deliver(
+            email = email,
+            subject = "Confirm your registration",
+            wording = Wording(
+                greeting = "Hello ${firstname.ifBlank { "there" }},",
+                intro = "Confirm this address to finish creating your account:",
+                button = "Confirm my account",
+                fallback = "If the button does not work, paste this code into the confirmation page:",
+                closing = "If you did not sign up, you can ignore this email — no account is " +
+                    "created until the link above is used.",
+            ),
+            link = link,
+            token = token,
+            validFor = validFor,
+        )
+    }
+
+    private fun deliver(
+        email: String,
+        subject: String,
+        wording: Wording,
+        link: String,
+        token: String,
+        validFor: Duration,
+    ) {
         try {
             val message = mailSender.createMimeMessage()
             val helper = MimeMessageHelper(message, true, "UTF-8")
             from?.let { helper.setFrom(it) }
             helper.setTo(email)
-            // The token stays out of the subject line: subjects show up in
-            // mail-server logs and notification previews far more readily than
-            // bodies do.
-            helper.setSubject("Your sign-in link")
-            helper.setText(plainTextBody(link, token, validFor), htmlBody(link, token, validFor))
+            helper.setSubject(subject)
+            helper.setText(
+                plainTextBody(wording, link, token, validFor),
+                htmlBody(wording, link, token, validFor),
+            )
             mailSender.send(message)
         } catch (ex: Exception) {
             // Nothing downstream can act on this — the caller returned long ago —
             // so it is logged and dropped. The address is included; the token is
             // not.
-            log.error("Could not email a sign-in link to {}", email, ex)
+            log.error("Could not email a {} to {}", subject, email, ex)
         }
     }
 
-    private fun plainTextBody(link: String, token: String, validFor: Duration): String =
+    private fun plainTextBody(wording: Wording, link: String, token: String, validFor: Duration): String =
         """
-        Use this link to sign in:
+        ${wording.greeting.orEmpty()}
+
+        ${wording.intro}
 
             $link
 
-        If the link does not open, paste this code into the sign-in page instead:
+        ${wording.fallback}
 
             $token
 
         It expires in ${validFor.toMinutes()} minutes and works only once.
 
-        If you did not try to sign in, you can ignore this email — whoever asked
-        for the link cannot do anything without it.
-        """.trimIndent()
+        ${wording.closing}
+        """.trimIndent().trimStart()
 
-    private fun htmlBody(link: String, token: String, validFor: Duration): String =
-        """
+    private fun htmlBody(wording: Wording, link: String, token: String, validFor: Duration): String {
+        val greeting = wording.greeting?.let { "<p>" + escapeHtml(it) + "</p>" }.orEmpty()
+        return """
         <!doctype html>
         <html lang="en">
         <body style="margin:0;padding:24px;font:16px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;color:#1a1a1a;">
-          <p>Use this link to sign in:</p>
+          $greeting
+          <p>${escapeHtml(wording.intro)}</p>
           <p>
             <a href="${escapeHtml(link)}"
                style="display:inline-block;padding:12px 20px;border-radius:8px;background:#1a1a1a;color:#fff;text-decoration:none;">
-              Sign in
+              ${escapeHtml(wording.button)}
             </a>
           </p>
-          <p style="color:#666;font-size:14px;">
-            If the button does not work, paste this code into the sign-in page:
-          </p>
+          <p style="color:#666;font-size:14px;">${escapeHtml(wording.fallback)}</p>
           <p style="font-family:ui-monospace,monospace;font-size:14px;word-break:break-all;">${escapeHtml(token)}</p>
           <p style="color:#666;font-size:14px;">
             It expires in ${validFor.toMinutes()} minutes and works only once.
           </p>
-          <p style="color:#666;font-size:14px;">
-            If you did not try to sign in, you can ignore this email &mdash; whoever
-            asked for the link cannot do anything without it.
-          </p>
+          <p style="color:#666;font-size:14px;">${escapeHtml(wording.closing)}</p>
         </body>
         </html>
         """.trimIndent()
+    }
 
     /**
      * The link and token are values this application generated, not user input,
@@ -110,7 +163,31 @@ class SmtpEmailService(
         .replace("<", "&lt;")
         .replace(">", "&gt;")
         .replace("\"", "&quot;")
+
+    private companion object {
+        val SIGN_IN_WORDING = Wording(
+            greeting = null,
+            intro = "Use this link to sign in:",
+            button = "Sign in",
+            fallback = "If the button does not work, paste this code into the sign-in page:",
+            closing = "If you did not try to sign in, you can ignore this email — whoever asked " +
+                "for the link cannot do anything without it.",
+        )
+    }
 }
+
+/**
+ * The prose around a link, which is the only thing that differs between the two
+ * messages: both carry the same token to the same page, and a reader who cannot
+ * tell them apart cannot tell what is about to happen.
+ */
+private class Wording(
+    val greeting: String?,
+    val intro: String,
+    val button: String,
+    val fallback: String,
+    val closing: String,
+)
 
 /**
  * Fallback used when no SMTP server is configured, so the flow can be exercised
@@ -125,6 +202,22 @@ class LoggingEmailService : EmailService {
         log.warn(
             "No SMTP server configured, so nothing was emailed. Sign-in link for {} is {} (valid {} minutes). " +
                 "Set spring.mail.host to deliver links for real.",
+            email,
+            link,
+            validFor.toMinutes(),
+        )
+    }
+
+    override fun sendVerificationLink(
+        email: String,
+        firstname: String,
+        link: String,
+        token: String,
+        validFor: Duration,
+    ) {
+        log.warn(
+            "No SMTP server configured, so nothing was emailed. Registration link for {} is {} " +
+                "(valid {} minutes). Set spring.mail.host to deliver links for real.",
             email,
             link,
             validFor.toMinutes(),

@@ -38,12 +38,29 @@ class MutableClock(var now: Instant = START) : Clock() {
 /** Captures what would have gone out by email, tokens included. */
 class RecordingEmailService : EmailService {
 
-    data class Sent(val email: String, val link: String, val token: String, val validFor: Duration)
+    data class Sent(
+        val email: String,
+        val link: String,
+        val token: String,
+        val validFor: Duration,
+        /** Which of the two messages this was — the wording is the only difference. */
+        val verification: Boolean = false,
+    )
 
     private val sent = mutableListOf<Sent>()
 
     override fun sendSignInLink(email: String, link: String, token: String, validFor: Duration) {
         sent += Sent(email, link, token, validFor)
+    }
+
+    override fun sendVerificationLink(
+        email: String,
+        firstname: String,
+        link: String,
+        token: String,
+        validFor: Duration,
+    ) {
+        sent += Sent(email, link, token, validFor, verification = true)
     }
 
     val count: Int get() = sent.size

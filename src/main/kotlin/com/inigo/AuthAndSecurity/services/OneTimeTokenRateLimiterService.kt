@@ -1,6 +1,7 @@
 package com.inigo.AuthAndSecurity.services
 
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenProperties
+import com.inigo.AuthAndSecurity.repositories.AppUserRepository
 import com.inigo.AuthAndSecurity.repositories.IssuedTokenRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -17,8 +18,9 @@ sealed interface LinkRequestDecision {
 
     /**
      * Refused, but the caller must not be told why: the address is not on the
-     * allowlist, and saying so would turn this endpoint into a way of asking who
-     * has access. Handled by doing nothing and reporting success.
+     * allowlist, or has no confirmed account behind it. Saying so would turn this
+     * endpoint into a way of asking who has access, and into a way of listing which
+     * addresses are registered. Handled by doing nothing and reporting success.
      */
     data object SilentlyRefused : LinkRequestDecision
 
@@ -27,6 +29,16 @@ sealed interface LinkRequestDecision {
 
     /** The address has used up its allowance for the current window. */
     data object QuotaExceeded : LinkRequestDecision
+}
+
+/** Which of the two pages is asking, since they do not accept the same addresses. */
+enum class LinkPurpose {
+
+    /** Only a confirmed account may be sent one. */
+    SIGN_IN,
+
+    /** An address with no account is exactly who this is for. */
+    REGISTRATION,
 }
 
 /**
@@ -43,25 +55,28 @@ sealed interface LinkRequestDecision {
 @Service
 class OneTimeTokenRateLimiterService(
     private val tokens: IssuedTokenRepository,
+    private val users: AppUserRepository,
     private val properties: OneTimeTokenProperties,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun decide(rawEmail: String): LinkRequestDecision {
+    fun decide(rawEmail: String, purpose: LinkPurpose): LinkRequestDecision {
         val email = normalizeEmail(rawEmail)
         val now = clock.instant()
 
-        // The allowlist is checked last, even though it is the cheapest test and
-        // the one most likely to refuse. Checking it first would return before
-        // either query below had run, making a refusal measurably faster than an
-        // acceptance and handing back exactly the answer the silent refusal is
-        // there to withhold. An address that is not on the list has no rows, so
-        // neither limit below can fire for it — running the queries anyway costs
-        // nothing but keeps the two paths the same shape.
+        // The allowlist and the account lookup are checked last, even though they
+        // are the cheapest tests and the ones most likely to refuse. Checking them
+        // first would return before either query below had run, making a refusal
+        // measurably faster than an acceptance and handing back exactly the answer
+        // the silent refusal is there to withhold. An address that is refused has
+        // no rows, so neither limit below can fire for it — running the queries
+        // anyway costs nothing but keeps the two paths the same shape, and for the
+        // same reason the account lookup runs whether or not it will be consulted.
         val previous = tokens.findFirstByEmailOrderByCreatedAtDesc(email)
         val recentlyIssued = tokens.countByEmailAndCreatedAtAfter(email, now.minus(properties.window))
+        val registered = users.existsByEmailAndVerifiedAtIsNotNull(email)
 
         if (previous != null) {
             val nextAllowedAt = previous.createdAt.plus(properties.resendCooldown)
@@ -76,7 +91,16 @@ class OneTimeTokenRateLimiterService(
         }
 
         if (!properties.allows(email)) {
-            log.info("Refusing a sign-in link for {}: not on the allowlist", email)
+            log.info("Refusing a link for {}: not on the allowlist", email)
+            return LinkRequestDecision.SilentlyRefused
+        }
+
+        // Nobody may be sent a sign-in link to an account that does not exist yet.
+        // Registration is the door for those, and it is the only one that writes a
+        // row — otherwise anyone could sign in as any address they could receive
+        // mail at, which is what this application used to do.
+        if (purpose == LinkPurpose.SIGN_IN && !registered) {
+            log.info("Refusing a sign-in link for {}: no confirmed account", email)
             return LinkRequestDecision.SilentlyRefused
         }
 

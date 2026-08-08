@@ -1,5 +1,7 @@
 package com.inigo.AuthAndSecurity.onetimetoken
 
+import com.inigo.AuthAndSecurity.entity.AppUser
+import com.inigo.AuthAndSecurity.repositories.AppUserRepository
 import com.inigo.AuthAndSecurity.repositories.IssuedTokenRepository
 import com.inigo.AuthAndSecurity.services.PersistentOneTimeTokenService
 import org.junit.jupiter.api.BeforeEach
@@ -23,6 +25,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.Duration
+import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -50,11 +53,31 @@ class OneTimeTokenLoginFlowTest {
     @Autowired
     private lateinit var tokens: IssuedTokenRepository
 
+    @Autowired
+    private lateinit var users: AppUserRepository
+
     @BeforeEach
     fun setUp() {
         clock.reset()
         email.clear()
         tokens.deleteAll()
+        users.deleteAll()
+        // Only a confirmed account can be sent a sign-in link at all, so every test
+        // below that asks for one starts from an already-registered visitor.
+        register("sam@example.com")
+    }
+
+    private fun register(address: String) {
+        users.save(
+            AppUser(
+                email = address,
+                firstname = "Sam",
+                surname = "Example",
+                dateOfBirth = LocalDate.of(1995, 1, 1),
+                createdAt = clock.instant(),
+                verifiedAt = clock.instant(),
+            )
+        )
     }
 
     private fun requestLink(address: String) =
@@ -233,6 +256,9 @@ class OneTimeTokenThrottlingTest {
     @Autowired
     private lateinit var tokens: IssuedTokenRepository
 
+    @Autowired
+    private lateinit var users: AppUserRepository
+
     /**
      * The real bean, not a hand-built one: `generate` is `@Transactional`, and a
      * plain constructor call gets no proxy and so no transaction.
@@ -245,6 +271,19 @@ class OneTimeTokenThrottlingTest {
         clock.reset()
         email.clear()
         tokens.deleteAll()
+        users.deleteAll()
+        // Only a confirmed account may be sent a sign-in link, so every request
+        // below is against an address that has already gone through registration.
+        users.save(
+            AppUser(
+                email = "sam@example.com",
+                firstname = "Sam",
+                surname = "Example",
+                dateOfBirth = LocalDate.of(1995, 1, 1),
+                createdAt = clock.instant(),
+                verifiedAt = clock.instant(),
+            )
+        )
     }
 
     private fun requestLink(address: String) =

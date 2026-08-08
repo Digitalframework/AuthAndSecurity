@@ -82,5 +82,17 @@ h1 { margin: 0 0 1.5rem; font-size: 1.25rem; }
     background: color-mix(in srgb, CanvasText 15%, transparent);
 }
 
+.details {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: center;
+    gap: 0.25rem 1rem;
+    margin: 1.25rem 0 0;
+    font-size: 0.9rem;
+}
+
+.details dt { color: color-mix(in srgb, CanvasText 60%, transparent); text-align: right; }
+.details dd { margin: 0; text-align: left; }
+
 .links { margin-top: 1.25rem; font-size: 0.9rem; }
 .links a { color: inherit; }

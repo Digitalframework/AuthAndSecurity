@@ -21,6 +21,15 @@
                               ? 'Signed in with Google'
                               : 'Signed in with an emailed link'"></p>
 
+    <!--/* Absent for a session with no row behind it — a Google sign-in by someone
+            who never registered here. */-->
+    <dl class="details" th:if="${user.dateOfBirth != null}">
+        <dt>Date of birth</dt>
+        <dd th:text="${#temporals.format(user.dateOfBirth, 'd MMMM yyyy')}"></dd>
+        <dt>Permissions</dt>
+        <dd th:text="${#strings.listJoin(user.permissions, ', ')}"></dd>
+    </dl>
+
     <!--/* A POST, because logging out on a GET is something a third-party page can
             provoke. Thymeleaf adds the CSRF hidden field automatically. */-->
     <form method="post" th:action="@{/logout}">
