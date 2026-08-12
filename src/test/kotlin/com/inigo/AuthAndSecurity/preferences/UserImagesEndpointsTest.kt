@@ -1,9 +1,9 @@
 package com.inigo.AuthAndSecurity.preferences
 
 import com.inigo.AuthAndSecurity.entity.AppUser
-import com.inigo.AuthAndSecurity.entity.UserPreference
+import com.inigo.AuthAndSecurity.entity.UserImages
 import com.inigo.AuthAndSecurity.repositories.AppUserRepository
-import com.inigo.AuthAndSecurity.repositories.UserPreferenceRepository
+import com.inigo.AuthAndSecurity.repositories.UserImagesRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,7 +36,7 @@ import kotlin.test.assertTrue
     ]
 )
 @AutoConfigureMockMvc
-class UserPreferenceEndpointsTest {
+class UserImagesEndpointsTest {
 
     @Autowired
     private lateinit var mockMvc: MockMvc
@@ -45,7 +45,7 @@ class UserPreferenceEndpointsTest {
     private lateinit var users: AppUserRepository
 
     @Autowired
-    private lateinit var preferences: UserPreferenceRepository
+    private lateinit var preferences: UserImagesRepository
 
     private lateinit var owner: AppUser
 
@@ -203,7 +203,7 @@ class UserPreferenceEndpointsTest {
         mockMvc.perform(get("/api/user-preferences")).andExpect(status().is3xxRedirection)
     }
 
-    private fun preferenceFor(userId: UUID) = UserPreference(
+    private fun preferenceFor(userId: UUID) = UserImages(
         userId = userId,
         savedPicture = square(1024),
         pictureContentType = "image/png",

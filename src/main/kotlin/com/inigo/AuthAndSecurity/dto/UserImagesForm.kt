@@ -9,11 +9,11 @@ import org.springframework.web.multipart.MultipartFile
  *
  * [picture] is not `@NotNull`: it is required on create and optional on update
  * (an update that omits it keeps the picture already on file), and only
- * [com.inigo.AuthAndSecurity.services.UserPreferenceService] knows which of the
+ * [com.inigo.AuthAndSecurity.services.UserImagesService] knows which of the
  * two cases applies, so it is what enforces that rather than a bean-validation
  * annotation here.
  */
-data class UserPreferenceForm(
+data class UserImagesForm(
 
     @field:NotBlank(message = "A style is required.")
     @field:Size(max = 100, message = "That style name is too long.")

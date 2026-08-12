@@ -7,7 +7,7 @@ import java.util.UUID
  * here — [pictureUrl] points at the endpoint that serves the raw bytes instead,
  * so that listing many entries stays cheap.
  */
-data class UserPreferenceResponse(
+data class UserImagesResponse(
     val id: UUID,
     val style: String,
     val favorite: Boolean,

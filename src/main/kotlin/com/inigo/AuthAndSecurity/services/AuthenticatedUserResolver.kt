@@ -14,7 +14,7 @@ import java.util.Locale
  * an address, and a Google session carries a Google profile with no idea this
  * table exists.
  *
- * Shared by [CurrentUserService] and [UserPreferenceService], both of which need
+ * Shared by [CurrentUserService] and [UserImagesService], both of which need
  * the same [AppUser.userId] the session is standing in for.
  */
 @Component

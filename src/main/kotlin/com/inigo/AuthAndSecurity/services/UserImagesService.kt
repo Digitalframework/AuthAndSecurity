@@ -1,9 +1,9 @@
 package com.inigo.AuthAndSecurity.services
 
-import com.inigo.AuthAndSecurity.dto.UserPreferenceForm
-import com.inigo.AuthAndSecurity.dto.UserPreferenceResponse
-import com.inigo.AuthAndSecurity.entity.UserPreference
-import com.inigo.AuthAndSecurity.repositories.UserPreferenceRepository
+import com.inigo.AuthAndSecurity.dto.UserImagesForm
+import com.inigo.AuthAndSecurity.dto.UserImagesResponse
+import com.inigo.AuthAndSecurity.entity.UserImages
+import com.inigo.AuthAndSecurity.repositories.UserImagesRepository
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -51,19 +51,19 @@ import javax.imageio.ImageIO
  */
 @RestController
 @RequestMapping("/api/user-preferences")
-class UserPreferenceService(
-    private val preferences: UserPreferenceRepository,
+class UserImagesService(
+    private val preferences: UserImagesRepository,
     private val userResolver: AuthenticatedUserResolver,
 ) {
 
     @GetMapping
     @Transactional(readOnly = true)
-    fun list(authentication: Authentication?): List<UserPreferenceResponse> =
+    fun list(authentication: Authentication?): List<UserImagesResponse> =
         preferences.findAllByUserId(ownerId(authentication)).map { it.toResponse() }
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
-    fun get(authentication: Authentication?, @PathVariable id: UUID): UserPreferenceResponse =
+    fun get(authentication: Authentication?, @PathVariable id: UUID): UserImagesResponse =
         findOwned(ownerId(authentication), id).toResponse()
 
     @GetMapping("/{id}/picture")
@@ -80,9 +80,9 @@ class UserPreferenceService(
     @Transactional
     fun create(
         authentication: Authentication?,
-        @Valid @ModelAttribute form: UserPreferenceForm,
+        @Valid @ModelAttribute form: UserImagesForm,
         binding: BindingResult,
-    ): UserPreferenceResponse {
+    ): UserImagesResponse {
         rejectIfInvalid(binding)
         val userId = ownerId(authentication)
 
@@ -91,7 +91,7 @@ class UserPreferenceService(
         val (bytes, contentType) = readAndValidatePicture(picture)
 
         return preferences.save(
-            UserPreference(
+            UserImages(
                 userId = userId,
                 savedPicture = bytes,
                 pictureContentType = contentType,
@@ -101,19 +101,19 @@ class UserPreferenceService(
         ).toResponse()
     }
 
-    /** A full replace of every field but the picture, which stays optional — see [UserPreferenceForm]. */
+    /** A full replace of every field but the picture, which stays optional — see [UserImagesForm]. */
     @PutMapping("/{id}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @Transactional
     fun update(
         authentication: Authentication?,
         @PathVariable id: UUID,
-        @Valid @ModelAttribute form: UserPreferenceForm,
+        @Valid @ModelAttribute form: UserImagesForm,
         binding: BindingResult,
-    ): UserPreferenceResponse {
+    ): UserImagesResponse {
         rejectIfInvalid(binding)
         val existing = findOwned(ownerId(authentication), id)
 
-        // Optional here — see UserPreferenceForm — so an update that leaves the
+        // Optional here — see UserImagesForm — so an update that leaves the
         // field off the request keeps whatever picture is already on file.
         form.picture?.takeIf { !it.isEmpty }?.let {
             val (bytes, contentType) = readAndValidatePicture(it)
@@ -145,7 +145,7 @@ class UserPreferenceService(
             ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No registered account behind this session.")
 
     /** The only way a row is ever loaded here, so the ownership scoping cannot be skipped. */
-    private fun findOwned(userId: UUID, id: UUID): UserPreference =
+    private fun findOwned(userId: UUID, id: UUID): UserImages =
         preferences.findByPreferenceIdAndUserId(id, userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
@@ -182,7 +182,7 @@ class UserPreferenceService(
         }
     }
 
-    private fun UserPreference.toResponse() = UserPreferenceResponse(
+    private fun UserImages.toResponse() = UserImagesResponse(
         id = requireNotNull(preferenceId),
         style = style,
         favorite = favorite,

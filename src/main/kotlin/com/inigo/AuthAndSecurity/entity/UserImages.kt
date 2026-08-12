@@ -15,7 +15,7 @@ import java.util.UUID
  * [userId] is a plain column rather than a `@ManyToOne` to [AppUser], in keeping
  * with the rest of this schema (see [IssuedToken.email]): nothing here ever needs
  * to walk from a preference back to the user's other fields, and every access
- * already goes through [com.inigo.AuthAndSecurity.services.UserPreferenceService],
+ * already goes through [com.inigo.AuthAndSecurity.services.UserImagesService],
  * which is what keeps one visitor from ever reading or touching another's row —
  * not a foreign key.
  */
@@ -24,14 +24,14 @@ import java.util.UUID
     name = "user_preference",
     indexes = [Index(name = "idx_user_preference_user_id", columnList = "user_id")],
 )
-class UserPreference(
+class UserImages(
 
     @Column(name = "user_id", nullable = false)
     var userId: UUID,
 
     /**
      * Exactly 1024x1024, enforced in
-     * [com.inigo.AuthAndSecurity.services.UserPreferenceService] rather than here —
+     * [com.inigo.AuthAndSecurity.services.UserImagesService] rather than here —
      * an entity has no way to reject a write, only to shape the column it lands in.
      *
      * Plain `bytea` rather than `@Lob`: on PostgreSQL, `@Lob` on a byte array maps
