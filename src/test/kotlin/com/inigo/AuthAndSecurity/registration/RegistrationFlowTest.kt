@@ -1,5 +1,6 @@
 package com.inigo.AuthAndSecurity.registration
 
+import com.inigo.AuthAndSecurity.entity.AppUser
 import com.inigo.AuthAndSecurity.entity.Permission
 import com.inigo.AuthAndSecurity.onetimetoken.MutableClock
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenTestConfig
@@ -87,6 +88,7 @@ class RegistrationFlowTest {
         assertEquals(LocalDate.of(1995, 1, 1), user.dateOfBirth)
         assertNull(user.verifiedAt, "the row must stay unverified until the link is redeemed")
         assertEquals(setOf(Permission.USER), user.permissions)
+        assertEquals(AppUser.STARTING_TOKEN_BALANCE, user.tokenBalance)
 
         val sent = email.lastFor("sam@example.com")
         assertTrue(sent.verification, "registration must send the verification wording, not the sign-in one")
@@ -146,6 +148,22 @@ class RegistrationFlowTest {
 
         val sent = email.lastFor("sam@example.com")
         assertTrue(!sent.verification, "the address is already registered, so this is just a way back in")
+    }
+
+    @Test
+    fun `re-registering never resets a token balance already granted`() {
+        submit()
+        val pending = users.findByEmail("sam@example.com")!!
+        pending.tokenBalance = 250
+        users.save(pending)
+
+        // Resubmitting is how a half-finished registration is resumed, so it
+        // rewrites the details — but a balance is not a detail the form owns.
+        submit(firstname = "Sammy").andExpect(redirectedUrl("/ott/sent"))
+
+        val after = users.findByEmail("sam@example.com")
+        assertEquals("Sammy", after?.firstname)
+        assertEquals(250, after?.tokenBalance)
     }
 
     @Test

@@ -26,6 +26,7 @@ data class CurrentUser(
     val surname: String? = null,
     val dateOfBirth: LocalDate? = null,
     val permissions: List<String> = emptyList(),
+    val tokenBalance: Int? = null,
 ) {
     companion object {
 
@@ -50,6 +51,7 @@ data class CurrentUser(
                     surname = user.surname,
                     dateOfBirth = user.dateOfBirth,
                     permissions = user.permissions.map { it.name }.sorted(),
+                    tokenBalance = user.tokenBalance,
                 )
             } ?: CurrentUser(authenticated = true)
 

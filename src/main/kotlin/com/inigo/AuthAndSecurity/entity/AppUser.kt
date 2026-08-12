@@ -70,6 +70,15 @@ class AppUser(
     @Column(name = "permission", nullable = false, length = 32)
     var permissions: MutableSet<Permission> = mutableSetOf(Permission.USER),
 
+    /**
+     * Spendable tokens. Not touched by registration, which always starts an
+     * account at [STARTING_TOKEN_BALANCE] — a balance is something the
+     * application grants, never something a form submits, or topping up would be
+     * a matter of adding a field to the POST.
+     */
+    @Column(name = "token_balance", nullable = false)
+    var tokenBalance: Int = STARTING_TOKEN_BALANCE,
+
     @Column(nullable = false)
     var createdAt: Instant,
 
@@ -85,4 +94,9 @@ class AppUser(
     var userId: UUID? = null,
 ) {
     val verified: Boolean get() = verifiedAt != null
+
+    companion object {
+        /** What a brand-new account is opened with. */
+        const val STARTING_TOKEN_BALANCE: Int = 0
+    }
 }

@@ -68,8 +68,10 @@ class UserRegistrationService(
                     firstname = form.firstname.trim(),
                     surname = form.surname.trim(),
                     dateOfBirth = dateOfBirth,
-                    // The form cannot ask for anything else, and nothing here
-                    // reads it back off the request.
+                    // The form cannot ask for either of these, and nothing here
+                    // reads them back off the request: the permissions are fixed,
+                    // and the token balance is left to its default rather than
+                    // being passed in at all.
                     permissions = mutableSetOf(Permission.USER),
                     createdAt = clock.instant(),
                 )
