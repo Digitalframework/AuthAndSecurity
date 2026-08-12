@@ -1,0 +1,35 @@
+# Secrets. .gitignore does NOT apply to the Docker build context, so without
+# these two lines .env — which holds the real Google client secret and the
+# database password — would be copied straight into the image, where anyone who
+# can pull it can read it back out. .env.example carries only placeholders and is
+# harmless, but nothing needs it either.
+.env
+.env.properties
+.env.example
+
+# Built on the host. The image compiles from source in its own stage, so any
+# target/ lying around is dead weight in the context — and a stale jar in it
+# would be genuinely confusing.
+target/
+
+# Version control and tooling: none of it is needed to build or run, and .git in
+# particular can be large enough to slow the context upload noticeably.
+.git
+.gitignore
+.gitattributes
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# The wrapper is unused: the build stage has Maven already.
+.mvn/
+mvnw
+mvnw.cmd
+
+Dockerfile
+.dockerignore
+compose.yaml
+HELP.md
+README.md

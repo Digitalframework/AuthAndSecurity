@@ -1,0 +1,69 @@
+# Compose reads .env from this directory automatically to fill in the ${...}
+# below, so the same file that configures a local `./mvnw spring-boot:run` also
+# configures this — without ever being copied into an image (see .dockerignore).
+#
+# Run with:  docker compose up --build
+#
+# One caveat on that shared .env: Compose parses it as KEY=VALUE shell-style
+# variables, while Spring also reads it as a properties file. The Spring-style
+# keys in there (spring.mail.host and friends) are all commented out today, and
+# should stay that way — a dot is not valid in a shell variable name, and
+# uncommenting one will make Compose complain. Put SMTP settings in the app
+# service's environment block below instead.
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${DB_NAME:-Security}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      # Named volume, so the database survives `docker compose down`. Use
+      # `down -v` when you actually want it gone.
+      #
+      # Mounted at /var/lib/postgresql, not .../data: as of the postgres:18
+      # image, the data directory moved under a major-version-specific
+      # subdirectory of that parent, and mounting straight at .../data now
+      # trips a hard startup check instead of just being the old convention.
+      # See https://github.com/docker-library/postgres/pull/1259.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      # Postgres briefly accepts connections while still starting up, so the app
+      # waits on this rather than on the container merely existing — otherwise
+      # the first boot races the database and Hibernate fails to connect.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-Security}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # localhost inside a container is that container, not the host — the
+      # database is a sibling service and is reached by its name on the compose
+      # network. Everything else keeps the defaults from application.properties.
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-Security}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+
+      # No defaults on purpose: startup fails fast without these, and a
+      # placeholder here would only turn that into a confusing OAuth error later.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
+
+      # Unset, sign-in links are built from the incoming request, which inside a
+      # container names the container — a link the recipient cannot open. This is
+      # exactly the case OneTimeTokenProperties.baseUrl exists for. Point it at
+      # whatever URL a browser actually reaches this on.
+      APP_OTT_BASE_URL: ${APP_OTT_BASE_URL:-http://localhost:8080}
+
+volumes:
+  pgdata:
