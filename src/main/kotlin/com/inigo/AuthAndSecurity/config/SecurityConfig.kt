@@ -1,5 +1,6 @@
 package com.inigo.AuthAndSecurity.config
 
+import com.inigo.AuthAndSecurity.controller.JwkSetController
 import com.inigo.AuthAndSecurity.onetimetoken.EmailOneTimeTokenGenerationSuccessHandler
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenProperties
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenRateLimitFilter
@@ -64,6 +65,10 @@ class SecurityConfig {
                 // Both the page that takes a pasted token and the POST that spends
                 // it — an unauthenticated caller is the only kind there is here.
                 authorize(EmailOneTimeTokenGenerationSuccessHandler.SUBMIT_PATH, permitAll)
+                // The public half of the token-signing key. Open because a verifier
+                // fetches it before it has any token to present, and because a public
+                // key is not a secret — see JwkSetController.
+                authorize(JwkSetController.JWK_SET_PATH, permitAll)
                 authorize("/css/**", permitAll)
                 authorize("/favicon.ico", permitAll)
                 authorize("/error", permitAll)
