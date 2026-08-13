@@ -75,8 +75,15 @@ class AppUser(
      * account at [STARTING_TOKEN_BALANCE] — a balance is something the
      * application grants, never something a form submits, or topping up would be
      * a matter of adding a field to the POST.
+     *
+     * The database default is what lets this column be added to a table that
+     * already has rows. Without it, `ddl-auto=update` emits `add column
+     * token_balance integer not null`, which PostgreSQL refuses because the
+     * existing rows would have no value — and Hibernate reports that failure as a
+     * warning and starts anyway, leaving the application querying a column that is
+     * not there.
      */
-    @Column(name = "token_balance", nullable = false)
+    @Column(name = "token_balance", nullable = false, columnDefinition = "integer default 0")
     var tokenBalance: Int = STARTING_TOKEN_BALANCE,
 
     @Column(nullable = false)

@@ -96,3 +96,12 @@ h1 { margin: 0 0 1.5rem; font-size: 1.25rem; }
 
 .links { margin-top: 1.25rem; font-size: 0.9rem; }
 .links a { color: inherit; }
+
+.notice {
+    color: light-dark(#1e6b32, #a6dfb4);
+    font-size: 0.9rem;
+    margin: 0 0 1rem;
+}
+
+.packs { display: grid; gap: 0.5rem; margin: 1.25rem 0; }
+.packs form { margin: 0; }

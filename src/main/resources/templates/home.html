@@ -32,6 +32,32 @@
         <dd th:text="${user.tokenBalance}"></dd>
     </dl>
 
+    <!--/* How the last trip to PayPal ended. Cosmetic only — the balance above is
+            read from the user table, so editing this parameter changes nothing. */-->
+    <p class="notice" th:if="${purchase == 'ok'}">Payment approved — tokens added.</p>
+    <p class="notice" th:if="${purchase == 'already'}">That purchase was already credited.</p>
+    <p class="error" th:if="${purchase == 'cancelled'}">Payment cancelled — no tokens added.</p>
+    <p class="error" th:if="${purchase == 'unapproved'}">PayPal did not approve that payment.</p>
+    <p class="error" th:if="${purchase == 'error'}">PayPal could not be reached. Try again later.</p>
+
+    <!--/* Hidden entirely when no credentials are configured, rather than offering
+            buttons that can only fail. */-->
+    <div th:if="${payPalEnabled}">
+        <div class="divider">Buy tokens</div>
+        <div class="packs">
+            <!--/* One form per pack, each posting nothing but the pack name: the
+                    price lives in the TokenPack enum on the server, so there is no
+                    amount here for anyone to edit. Thymeleaf adds the CSRF field. */-->
+            <form method="post" th:action="@{/paypal/create}" th:each="pack : ${packs}">
+                <input type="hidden" name="pack" th:value="${pack.name()}">
+                <button class="btn btn-block" type="submit"
+                        th:text="|${pack.tokens} tokens — ${#numbers.formatDecimal(pack.price, 1, 2)} ${currency}|">
+                </button>
+            </form>
+        </div>
+        <p class="muted">Sandbox only: you log in to PayPal, but nothing is ever charged.</p>
+    </div>
+
     <!--/* A POST, because logging out on a GET is something a third-party page can
             provoke. Thymeleaf adds the CSRF hidden field automatically. */-->
     <form method="post" th:action="@{/logout}">
