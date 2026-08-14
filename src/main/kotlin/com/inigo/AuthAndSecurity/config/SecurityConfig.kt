@@ -1,6 +1,7 @@
 package com.inigo.AuthAndSecurity.config
 
 import com.inigo.AuthAndSecurity.controller.JwkSetController
+import com.inigo.AuthAndSecurity.controller.UserController
 import com.inigo.AuthAndSecurity.onetimetoken.EmailOneTimeTokenGenerationSuccessHandler
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenProperties
 import com.inigo.AuthAndSecurity.onetimetoken.OneTimeTokenRateLimitFilter
@@ -11,13 +12,20 @@ import com.inigo.AuthAndSecurity.services.OneTimeTokenRateLimiterService
 import com.inigo.AuthAndSecurity.services.PersistentOneTimeTokenService
 import com.inigo.AuthAndSecurity.services.RegisteredUserDetailsService
 import com.inigo.AuthAndSecurity.services.UserRegistrationService
+import com.inigo.AuthAndSecurity.services.AccessTokenService
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.security.authentication.ott.OneTimeTokenAuthenticationProvider
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.annotation.web.invoke
+import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.oauth2.jwt.JwtDecoder
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler
 import org.springframework.security.web.authentication.ott.DefaultGenerateOneTimeTokenRequestResolver
@@ -27,9 +35,71 @@ import java.time.Clock
 
 @Configuration
 @EnableWebSecurity
+// Turns on the @PreAuthorize annotations guarding the token endpoints. Without it
+// they are ignored silently, with nothing said at startup — the same trap
+// generation-backend's SecurityConfig notes.
+@EnableMethodSecurity
 class SecurityConfig {
 
+    /**
+     * The endpoints generation-backend calls with the token [AccessTokenService]
+     * minted for it, kept on a chain of their own.
+     *
+     * Separate rather than a few more rules on the chain below, because almost
+     * nothing about them is the same. That one is for a browser: it carries a session
+     * cookie, wants CSRF protection, and answers an unauthenticated request with a
+     * redirect to the login page. A service holding a bearer token wants none of
+     * those — least of all the redirect, which would hand it a 302 and an HTML login
+     * form where it expected a 401 and JSON.
+     *
+     * Ordered first because the chain below matches every request that reaches it, so
+     * whichever is registered earlier wins these two paths.
+     */
     @Bean
+    @Order(1)
+    fun tokenApiSecurityFilterChain(http: HttpSecurity, decoder: JwtDecoder): SecurityFilterChain {
+        http {
+            securityMatcher(UserController.BALANCE_URL, UserController.SPEND_URL)
+            // No cookie is read on this chain, so there is no ambient credential for a
+            // forged cross-site request to ride on — which is the only thing a CSRF
+            // token defends. A bearer token has to be attached deliberately.
+            csrf { disable() }
+            sessionManagement { sessionCreationPolicy = SessionCreationPolicy.STATELESS }
+            formLogin { disable() }
+            httpBasic { disable() }
+            authorizeHttpRequests {
+                // Only "is this anyone at all" here; which role may do what is on the
+                // controller methods, next to the code it protects.
+                authorize(anyRequest, authenticated)
+            }
+            oauth2ResourceServer {
+                jwt { jwtAuthenticationConverter = rolesAuthenticationConverter() }
+            }
+        }
+        return http.build()
+    }
+
+    /**
+     * Maps the token's `roles` claim onto authorities, the mirror image of what
+     * [AccessTokenService] wrote and a copy of what generation-backend does with the
+     * same tokens.
+     *
+     * Both defaults have to be overridden and both fail silently: Spring reads
+     * `scope`/`scp`, which these tokens do not carry, and prefixes with `SCOPE_`,
+     * while `hasRole('USER')` tests for exactly `ROLE_USER`. Get either wrong and the
+     * caller simply arrives with no authorities and is refused by a 403 that explains
+     * nothing.
+     */
+    private fun rolesAuthenticationConverter(): JwtAuthenticationConverter {
+        val authorities = JwtGrantedAuthoritiesConverter()
+        authorities.setAuthoritiesClaimName(AccessTokenService.ROLES_CLAIM)
+        authorities.setAuthorityPrefix("ROLE_")
+
+        return JwtAuthenticationConverter().apply { setJwtGrantedAuthoritiesConverter(authorities) }
+    }
+
+    @Bean
+    @Order(2)
     fun securityFilterChain(
         http: HttpSecurity,
         tokenService: PersistentOneTimeTokenService,

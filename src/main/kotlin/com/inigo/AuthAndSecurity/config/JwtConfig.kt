@@ -11,8 +11,16 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.Resource
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
+import org.springframework.security.oauth2.core.OAuth2Error
+import org.springframework.security.oauth2.core.OAuth2TokenValidator
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm
+import org.springframework.security.oauth2.jwt.Jwt
+import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtEncoder
+import org.springframework.security.oauth2.jwt.JwtValidators
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
@@ -68,6 +76,42 @@ class JwtConfig {
 
     @Bean
     fun jwtEncoder(jwkSource: JWKSource<SecurityContext>): JwtEncoder = NimbusJwtEncoder(jwkSource)
+
+    /**
+     * Verifies a token this application issued and is now being handed back — the
+     * token endpoints on [com.inigo.AuthAndSecurity.controller.UserController], which
+     * generation-backend calls with the very token it was given.
+     *
+     * Built straight from the public half of [jwtSigningKey] rather than by fetching
+     * the JWKS over HTTP the way generation-backend does: here the issuer and the
+     * verifier are one process, so going out to the network to read back a key already
+     * in memory would only add a way to fail.
+     *
+     * [JwtValidators.createDefaultWithIssuer] covers `iss`, expiry and not-before. The
+     * audience check is added on top for the reason [JwtProperties.audience] gives —
+     * without it a token minted for somewhere else would be spendable here.
+     */
+    @Bean
+    fun jwtDecoder(jwtSigningKey: RSAKey, properties: JwtProperties): JwtDecoder {
+        val decoder = NimbusJwtDecoder.withPublicKey(jwtSigningKey.toRSAPublicKey()).build()
+
+        val audience = OAuth2TokenValidator<Jwt> { token ->
+            // `== true` rather than a null-safe default, so a token with no audience
+            // at all is refused instead of sliding through.
+            if (token.audience?.contains(properties.audience) == true) {
+                OAuth2TokenValidatorResult.success()
+            } else {
+                OAuth2TokenValidatorResult.failure(
+                    OAuth2Error("invalid_token", "Required audience '${properties.audience}' is missing", null),
+                )
+            }
+        }
+
+        decoder.setJwtValidator(
+            DelegatingOAuth2TokenValidator(JwtValidators.createDefaultWithIssuer(properties.issuer), audience),
+        )
+        return decoder
+    }
 
     /** The algorithm the encoder signs with, named once so the header cannot drift. */
     @Bean
