@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Check your inbox</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="card">
+    <h1>Check your inbox</h1>
+
+    <!--/* The address is not echoed back. This page looks identical whether a link
+            was actually sent or the address was quietly refused, and naming it would
+            give that away. */-->
+    <p class="muted">
+        If that address can sign in, a link is on its way. It expires shortly and
+        works only once.
+    </p>
+
+    <p class="links">
+        <a th:href="@{/login}">Use a different address</a>
+    </p>
+</main>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create an account</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="card">
+    <h1>Create an account</h1>
+
+    <p class="error" th:if="${message}" th:text="${message}"></p>
+
+    <!--/* th:object binds every field below to the RegistrationForm the controller
+            put on the model, so a rejected submission comes back filled in rather
+            than blank. CSRF goes along as a hidden field automatically. */-->
+    <form class="stack" method="post" th:action="@{/register}" th:object="${form}">
+        <input class="field"
+               type="text"
+               th:field="*{firstname}"
+               required
+               autofocus
+               maxlength="100"
+               autocomplete="given-name"
+               placeholder="First name">
+        <p class="error" th:if="${#fields.hasErrors('firstname')}" th:errors="*{firstname}"></p>
+
+        <input class="field"
+               type="text"
+               th:field="*{surname}"
+               required
+               maxlength="100"
+               autocomplete="family-name"
+               placeholder="Surname">
+        <p class="error" th:if="${#fields.hasErrors('surname')}" th:errors="*{surname}"></p>
+
+        <input class="field"
+               type="date"
+               th:field="*{dateOfBirth}"
+               required
+               autocomplete="bday">
+        <p class="error" th:if="${#fields.hasErrors('dateOfBirth')}" th:errors="*{dateOfBirth}"></p>
+
+        <input class="field"
+               type="email"
+               th:field="*{email}"
+               required
+               maxlength="254"
+               autocomplete="email"
+               placeholder="you@example.com">
+        <p class="error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></p>
+
+        <button class="btn btn-primary" type="submit">Email me a confirmation link</button>
+    </form>
+
+    <p class="muted">
+        Your account is created once you open the link we send, which is how we
+        check the address is yours.
+    </p>
+
+    <p class="links">
+        <a th:href="@{/login}">Already registered? Sign in</a>
+    </p>
+</main>
+</body>
+</html>

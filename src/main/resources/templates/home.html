@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AuthAndSecurity</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="card">
+    <h1>AuthAndSecurity</h1>
+
+    <img class="avatar" th:if="${user.picture}" th:src="${user.picture}" alt="">
+
+    <!--/* One expression rather than a chain of Thymeleaf's own ?: operator, which
+            only takes a single default and will not parse when strung together. */-->
+    <p class="name" th:text="${user.name ?: user.email ?: 'Signed in'}"></p>
+    <p class="muted" th:if="${user.name != null and user.email != null}" th:text="${user.email}"></p>
+
+    <p class="muted" th:text="${user.method == 'google'}
+                              ? 'Signed in with Google'
+                              : 'Signed in with an emailed link'"></p>
+
+    <!--/* Absent for a session with no row behind it — a Google sign-in by someone
+            who never registered here. */-->
+    <dl class="details" th:if="${user.dateOfBirth != null}">
+        <dt>Date of birth</dt>
+        <dd th:text="${#temporals.format(user.dateOfBirth, 'd MMMM yyyy')}"></dd>
+        <dt>Permissions</dt>
+        <dd th:text="${#strings.listJoin(user.permissions, ', ')}"></dd>
+        <dt>Tokens</dt>
+        <dd th:text="${user.tokenBalance}"></dd>
+    </dl>
+
+    <!--/* How the last trip to PayPal ended. Cosmetic only — the balance above is
+            read from the user table, so editing this parameter changes nothing. */-->
+    <p class="notice" th:if="${purchase == 'ok'}">Payment approved — tokens added.</p>
+    <p class="notice" th:if="${purchase == 'already'}">That purchase was already credited.</p>
+    <p class="error" th:if="${purchase == 'cancelled'}">Payment cancelled — no tokens added.</p>
+    <p class="error" th:if="${purchase == 'unapproved'}">PayPal did not approve that payment.</p>
+    <p class="error" th:if="${purchase == 'error'}">PayPal could not be reached. Try again later.</p>
+
+    <!--/* Hidden entirely when no credentials are configured, rather than offering
+            buttons that can only fail. */-->
+    <div th:if="${payPalEnabled}">
+        <div class="divider">Buy tokens</div>
+        <div class="packs">
+            <!--/* One form per pack, each posting nothing but the pack name: the
+                    price lives in the TokenPack enum on the server, so there is no
+                    amount here for anyone to edit. Thymeleaf adds the CSRF field. */-->
+            <form method="post" th:action="@{/paypal/create}" th:each="pack : ${packs}">
+                <input type="hidden" name="pack" th:value="${pack.name()}">
+                <button class="btn btn-block" type="submit"
+                        th:text="|${pack.tokens} tokens — ${#numbers.formatDecimal(pack.price, 1, 2)} ${currency}|">
+                </button>
+            </form>
+        </div>
+        <p class="muted">Sandbox only: you log in to PayPal, but nothing is ever charged.</p>
+    </div>
+
+    <!--/* A POST, because logging out on a GET is something a third-party page can
+            provoke. Thymeleaf adds the CSRF hidden field automatically. */-->
+    <form method="post" th:action="@{/logout}">
+        <button class="btn" type="submit">Sign out</button>
+    </form>
+</main>
+</body>
+</html>
